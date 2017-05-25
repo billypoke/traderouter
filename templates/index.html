@@ -1,0 +1,252 @@
+{% include "head.html" ignore missing %}
+
+{% if show_crest %}
+  <div class="row" id="faq">
+    <div id="login" class="col-xs-12">
+      <a href="{{ crest_url }}">
+        <img src="/static/images/sso_black.png" alt="Click here to log in">
+      </a>
+    </div>
+  </div>
+{% else %}
+  <div class="row">
+    <div class="col-xs-12">
+      <h1 id="current_location">Current Location: {{ current_system }}</h1>
+    </div>
+  </div>
+
+  <div id="current_system" class="row">
+    <div class="col-xs-12">
+      <h4>
+        <a href="#" id="sd_{{ current_id }}" class="set_destination">Set Destination</a> |
+        <a href="#" id="aw_{{ current_id }}" class="add_waypoint">Add Waypoint</a>
+      </h4>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xs-12">
+      <h4>
+        <a id="link_tripwire" href="https://tripwire.eve-apps.com/?system={{ current_system }}"
+           target="_blank">Tripwire</a> |
+        <a id="link_zkill" href="https://zkillboard.com/system/{{ current_id }}" target="_blank">zKillboard</a> |
+        <a id="link_dotlan" href="http://evemaps.dotlan.net/system/{{ current_system }}" target="_blank">dotlan</a>
+      </h4>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xs-12">
+      <label for="system">Search (3 character min) </label><br>
+      <input type="text" id="system"><br>
+      <a id="reset" href="#">Reset</a>
+    </div>
+  </div>
+
+  <div class="row" id="loading_message">
+    <div class="col-xs-12">
+      <h4>Loading...</h4>
+    </div>
+  </div>
+
+  <div id="trade_hubs" class="row">
+    {% for name, values in distances|dictsort %}
+      <div id="{{ name }}" class="col-md-6">
+        <h3 id="label_{{ name }}">{{ name }} - {{ values['distance'] }} Jump(s)</h3>
+        <a href="#" id="sd_{{ values['station_id'] }}" class="set_destination">Set Destination</a> |
+        <a href="#" id="aw_{{ values['station_id'] }}" class="add_waypoint">Add Waypoint</a>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="row">
+    <hr>
+    <div id="show_stations" class="col-xs-12">
+      <h4><a href="#">Show/Hide Stations</a></h4>
+    </div>
+    <div id="station_div" class="col-xs-12"></div>
+    <hr>
+  </div>
+
+  <script type="text/javascript">
+      let currentSystemID = '';
+      let currentSystemName = '';
+      $(function () {
+          // Hide the loading message and initialize globals
+          $('#loading_message').hide();
+          $('#station_div').hide();
+          currentSystemID = '{{ current_id }}';
+          currentSystemName = '{{ current_system }}';
+
+          // URL construction
+          let base = 'https://esi.tech.ccp.is/latest/';
+          let url = base + 'ui/autopilot/waypoint/?datasource=tranquility';
+          let refr_token = '{{ token }}';
+
+          // Set Destination click handler
+          $('#current_system, #trade_hubs, #station_div').on("click", ".set_destination", function (e) {
+              console.log(".set_destination handler called");
+              let destination = $(this).attr('id').split('_')[1];
+              $.post(url + '&add_to_beginning=true&clear_other_waypoints=true' + '&destination_id=' + destination + '&token=' + refr_token)
+                  .done(function (data) {
+                      console.log(data)
+                  });
+
+              e.preventDefault();
+          });
+
+          // Add Waypoint click handler
+          $('#current_system, #trade_hubs, #station_div').on("click", ".add_waypoint", function (e) {
+              console.log(".add_waypoint handler called");
+              let destination = $(this).attr('id').split('_')[1];
+              $.post(url + '&add_to_beginning=false&clear_other_waypoints=false' + '&destination_id=' + destination + '&token=' + refr_token)
+                  .done(function (data) {
+                      console.log(data)
+                  });
+
+              e.preventDefault();
+          });
+
+          // Reset click handler
+          $('#reset').click(function () {
+              // Reset values ot the user's current location
+              $('#current_location').text("Current Location: {{ current_system }}");
+              $('#sd_' + currentSystemID).attr("id", 'sd_{{ current_id }}');
+              $('#aw_' + currentSystemID).attr("id", 'aw_{{ current_id }}');
+
+              currentSystemName = '{{ current_system }}';
+              currentSystemID = '{{ current_id }}';
+
+              // Update meta links
+              $('#link_tripwire').attr('href', "https://tripwire.eve-apps.com/?system={{ current_system }}");
+              $('#link_zkill').attr('href', "https://zkillboard.com/system/{{ current_id }}");
+              $('#link_dotlan').attr('href', "http://evemaps.dotlan.net/system/{{ current_system }}");
+
+              // Hide and remove stations
+              $('#station_div').hide(100).empty();
+
+              $('#loading_message').show(100);
+              $.ajax({
+                  type: 'GET',
+                  url: '/traderouter/search/{{ current_system }}',
+                  dataType: "json",
+                  contentType: 'application/json'
+              }).done(function (ret) {
+                  console.log(ret);
+                  $.each(ret, function (name, data) {
+                      $('#label_' + name).text(name + ' - ' + data['distance'] + ' Jump(s)');
+                  });
+                  $('#loading_message').hide(100);
+              });
+          });
+
+          // Show Stations click handler
+          $('#show_stations').click(function () {
+              if ($('#station_div').is(':empty')) {
+                  $('#loading_message').show(100);
+                  // Get station IDs for the current system
+                  $.ajax({
+                      type: 'GET',
+                      url: base + 'search/?categories=station&datasource=tranquility&language=en-us&strict=false&search=' + currentSystemName,
+                      dataType: "json",
+                      contentType: 'application/json'
+                  }).done(function (ret) {
+                      // Resolve IDs to names
+                      $.ajax({
+                          type: 'POST',
+                          url: base + 'universe/names/',
+                          data: JSON.stringify(ret['station']),
+                          dataType: "json",
+                          contentType: 'application/json',
+                          success: function (ret) {
+                              // Sort by station name
+                              let sorted = ret.sort(function (a, b) {
+                                  return a['name'].localeCompare(b['name']);
+                              });
+
+                              $.each(sorted, function (index, data) {
+                                  $('#station_div').append(
+                                      "<hr><div><h5>" + data['name'] + "</h5>" +
+                                      "<a id='sd_" + data['id'] + "' href='#' class='set_destination'>Set Destination</a> | " +
+                                      "<a id='aw_" + data['id'] + "' href='#' class='add_waypoint'>Add Waypoint</a>" +
+                                      "</div>"
+                                  );
+                              });
+                          }
+                      });
+                      $('#loading_message').hide(100);
+                  });
+              }
+
+              $('#station_div').toggle(100);
+          });
+
+          // Autocomplete system name functionality
+          $('#system').autocomplete({
+              source: function (request, response) {
+                  $.get(base + 'search/?categories=solarsystem&datasource=tranquility&language=en-us&strict=false&search=' + request.term)
+                      .done(function (data) {
+                          $.ajax({
+                              type: 'POST',
+                              url: base + 'universe/names/',
+                              data: JSON.stringify(data['solarsystem']),
+                              dataType: "json",
+                              contentType: 'application/json',
+                              success: function (ret) {
+                                  console.log(ret);
+                                  response($.map(ret, function (el) {
+                                      return {
+                                          label: el.name,
+                                          value: el.id
+                                      };
+                                  }));
+                              }
+                          });
+                      });
+              },
+              minLength: 3,
+              select: function (event, ui) {
+                  // Get values from the input
+                  console.log(ui.item.value);
+                  currentSystemName = ui.item.label;
+                  let oldSystemID = currentSystemID;
+                  currentSystemID = ui.item.value;
+                  $('#current_location').text("Viewing System: " + currentSystemName);
+                  $('#system').val(ui.item.label);
+                  $('#loading_message').show(100);
+
+                  // Update ids to allow setting destination/adding waypoint to viewing system
+                  $('#sd_' + oldSystemID).attr("id", 'sd_' + currentSystemID);
+                  $('#aw_' + oldSystemID).attr("id", 'aw_' + currentSystemID);
+
+                  // Update meta links
+                  $('#link_tripwire').attr('href', 'https://tripwire.eve-apps.com/?system=' + currentSystemName);
+                  $('#link_zkill').attr('href', 'https://zkillboard.com/system/' + currentSystemID);
+                  $('#link_dotlan').attr('href', 'http://evemaps.dotlan.net/system/' + currentSystemName);
+
+                  // Hide and remove stations
+                  $('#station_div').hide(100).empty();
+
+                  // Fetch and update distances to trade hubs from viewing system
+                  $.ajax({
+                      type: 'GET',
+                      url: '/traderouter/search/' + currentSystemName,
+                      dataType: "json",
+                      contentType: 'application/json'
+                  }).done(function (ret) {
+                      console.log(ret);
+                      $.each(ret, function (name, data) {
+                          $('#label_' + name).text(name + ' - ' + data['distance'] + ' Jump(s)');
+                      });
+                      $('#loading_message').hide(100);
+                  });
+
+                  // Prevent system ID from replacing name in input field
+                  return false;
+              }
+          });
+      });
+  </script>
+{% endif %}
+
+{% include "foot.html" ignore missing %}
