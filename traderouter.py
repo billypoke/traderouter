@@ -1,5 +1,6 @@
 import requests
 import yaml
+from OpenSSL import SSL
 from flask import Flask, render_template, flash, request, redirect, url_for, jsonify
 from preston.esi import Preston
 
@@ -10,6 +11,8 @@ names_url = 'https://esi.tech.ccp.is/latest/universe/names/?datasource=tranquili
 config = yaml.load(open('config.conf', 'r'))
 
 application.config['SECRET_KEY'] = config['SECRET_KEY']
+application.config['URL'] = config['URL']
+application.config['SITE_NAME'] = config['SITE_NAME']
 
 preston = Preston(
     user_agent=config['EVE_OAUTH_USER_AGENT'],
@@ -83,7 +86,7 @@ def router(refresh_token=None):
             current_system = requests.post(url=names_url, json=[system_id]).json()[0]['name']
 
     except Exception as e:
-        flash('There was an error', 'error')
+        flash('There was an error: ' + str(e), 'error')
         print('Error: ' + str(e))
         return redirect(url_for('landing'))
 
@@ -108,6 +111,47 @@ def search(system_name):
         }
 
     return jsonify(distances)
+
+@application.route('/traderouter/update/<action>/<refresh_token>')
+def update(action, refresh_token):
+    try:
+        auth = preston.use_refresh_token(refresh_token)
+        pilot_info = auth.whoami()
+        pilot_name = pilot_info['CharacterName']
+        pilot_id = pilot_info['CharacterID']
+
+        location = auth.characters[pilot_id].location()
+        system_id = location['solar_system_id']
+        current_system = requests.post(url=names_url, json=[system_id]).json()[0]['name']
+
+        if action == 'location':
+            location = {
+                'name': current_system,
+                'system_id': system_id
+            }
+            return jsonify(location)
+
+        elif action == 'distances':
+            distances = {}
+            for name, th_id in trade_hub_system_ids.items():
+                route = preston.route[system_id][th_id]()
+                distances[name] = {
+                    'distance': len(route) - 1,
+                    'system_id': th_id,
+                    'station_id': trade_hub_station_ids[name]
+                }
+
+            distances['current'] = {
+                'name': current_system,
+                'system_id': system_id
+            }
+
+            return jsonify(distances)
+
+    except Exception as e:
+        flash('There was an error: ' + str(e), 'error')
+        print('Error: ' + str(e))
+        return redirect(url_for('landing'))
 
 
 if __name__ == "__main__":

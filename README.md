@@ -20,7 +20,7 @@ Python 3.x is required.
 3. Go to https://developers.eveonline.com/ and create a new application
 4. Choose a name and write a description
 5. For 'Connection Type', choose `Authentication & API Access`
-6. The required scopes are listed in `config.conf.deafult`
+6. The required scopes are listed in `config.conf.default`
 7. The Callback URL is where the SSO system will redirect your users after authentication. It should end in 
 `/traderouter/router` for this application
 8. Copy the information for your app into `config.conf`

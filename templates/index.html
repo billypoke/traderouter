@@ -35,19 +35,34 @@
     </div>
   </div>
 
+  <div class="row" id="auto_update">
+    <div class="col-xs-12">
+      <button type="button" class="btn btn-success" id="btn_autoupdate">Auto Update?</button>
+    </div>
+  </div><hr>
+
   <div class="row">
     <div class="col-xs-12">
-      <label for="system">Search (3 character min) </label><br>
-      <input type="text" id="system"><br>
-      <a id="reset" href="#">Reset</a>
+      <h4><label for="system">Search</label></h4>
     </div>
   </div>
 
-  <div class="row" id="loading_message">
-    <div class="col-xs-12">
-      <h4>Loading...</h4>
+  <div class="row">
+    <ul>
+      <li>Minimum 3 characters</li>
+      <li>Searching will disable auto-update</li>
+    </ul>
+  </div>
+
+  <div class="form-group row">
+    <div class="col-xs-9 col-sm-4">
+      <input id="system" type="text" class="form-control">
+    </div>
+    <div class="col-xs-3 col-sm-2">
+      <button id="reset" class="form-control btn btn-primary">Reset</button>
     </div>
   </div>
+  <hr>
 
   <div id="trade_hubs" class="row">
     {% for name, values in distances|dictsort %}
@@ -71,9 +86,9 @@
   <script type="text/javascript">
       let currentSystemID = '';
       let currentSystemName = '';
+      let timerUpdate;
       $(function () {
           // Hide the loading message and initialize globals
-          $('#loading_message').hide();
           $('#station_div').hide();
           currentSystemID = '{{ current_id }}';
           currentSystemName = '{{ current_system }}';
@@ -85,24 +100,18 @@
 
           // Set Destination click handler
           $('#current_system, #trade_hubs, #station_div').on("click", ".set_destination", function (e) {
-              console.log(".set_destination handler called");
+              // console.log(".set_destination handler called");
               let destination = $(this).attr('id').split('_')[1];
-              $.post(url + '&add_to_beginning=true&clear_other_waypoints=true' + '&destination_id=' + destination + '&token=' + refr_token)
-                  .done(function (data) {
-                      console.log(data)
-                  });
+              $.post(url + '&add_to_beginning=true&clear_other_waypoints=true' + '&destination_id=' + destination + '&token=' + refr_token);
 
               e.preventDefault();
           });
 
           // Add Waypoint click handler
           $('#current_system, #trade_hubs, #station_div').on("click", ".add_waypoint", function (e) {
-              console.log(".add_waypoint handler called");
+              // console.log(".add_waypoint handler called");
               let destination = $(this).attr('id').split('_')[1];
-              $.post(url + '&add_to_beginning=false&clear_other_waypoints=false' + '&destination_id=' + destination + '&token=' + refr_token)
-                  .done(function (data) {
-                      console.log(data)
-                  });
+              $.post(url + '&add_to_beginning=false&clear_other_waypoints=false' + '&destination_id=' + destination + '&token=' + refr_token);
 
               e.preventDefault();
           });
@@ -125,25 +134,26 @@
               // Hide and remove stations
               $('#station_div').hide(100).empty();
 
-              $('#loading_message').show(100);
+              // Clear search box
+              $('#system').val('');
+
+              // Update distances
               $.ajax({
                   type: 'GET',
                   url: '/traderouter/search/{{ current_system }}',
                   dataType: "json",
                   contentType: 'application/json'
               }).done(function (ret) {
-                  console.log(ret);
+                  // console.log(ret);
                   $.each(ret, function (name, data) {
                       $('#label_' + name).text(name + ' - ' + data['distance'] + ' Jump(s)');
                   });
-                  $('#loading_message').hide(100);
               });
           });
 
           // Show Stations click handler
           $('#show_stations').click(function () {
               if ($('#station_div').is(':empty')) {
-                  $('#loading_message').show(100);
                   // Get station IDs for the current system
                   $.ajax({
                       type: 'GET',
@@ -174,7 +184,6 @@
                               });
                           }
                       });
-                      $('#loading_message').hide(100);
                   });
               }
 
@@ -193,7 +202,7 @@
                               dataType: "json",
                               contentType: 'application/json',
                               success: function (ret) {
-                                  console.log(ret);
+                                  // console.log(ret);
                                   response($.map(ret, function (el) {
                                       return {
                                           label: el.name,
@@ -207,13 +216,12 @@
               minLength: 3,
               select: function (event, ui) {
                   // Get values from the input
-                  console.log(ui.item.value);
+                  // console.log(ui.item.value);
                   currentSystemName = ui.item.label;
                   let oldSystemID = currentSystemID;
                   currentSystemID = ui.item.value;
                   $('#current_location').text("Viewing System: " + currentSystemName);
                   $('#system').val(ui.item.label);
-                  $('#loading_message').show(100);
 
                   // Update ids to allow setting destination/adding waypoint to viewing system
                   $('#sd_' + oldSystemID).attr("id", 'sd_' + currentSystemID);
@@ -234,17 +242,98 @@
                       dataType: "json",
                       contentType: 'application/json'
                   }).done(function (ret) {
-                      console.log(ret);
+                      // console.log(ret);
                       $.each(ret, function (name, data) {
                           $('#label_' + name).text(name + ' - ' + data['distance'] + ' Jump(s)');
                       });
-                      $('#loading_message').hide(100);
                   });
 
                   // Prevent system ID from replacing name in input field
                   return false;
               }
           });
+
+          // Auto Update handlers
+          // Enabled on page load
+          start();
+
+          // Toggle button handler
+          $('#btn_autoupdate').on('click', function () {
+              if ($(this).hasClass("btn-danger")) {
+                  start();
+              } else {
+                  stop();
+              }
+          });
+
+          // Disable auto update when searching system
+          $('#system').on('change keyup paste', function () {
+              if ($(this).val() != '') stop();
+          });
+
+          // Start Auto Update interval
+          function start() {
+              // If auto-update is disabled, enable it
+              // console.log('Auto update enabled');
+              $('#btn_autoupdate').removeClass("btn-danger").addClass("btn-success");
+
+              timerUpdate = setInterval(function () {
+                  // console.log("Updating Location...");
+
+                  // Fetch and update distances to trade hubs from viewing system
+                  $.ajax({
+                      type: 'GET',
+                      url: '/traderouter/update/location/{{ refresh_token }}',
+                      dataType: "json",
+                      contentType: 'application/json'
+                  }).done(function (ret) {
+                      // console.log(ret);
+                      let oldSystemID = currentSystemID;
+                      currentSystemID = ret['system_id'];
+
+                      // Compare old and new to see if we need to update distances
+                      if (oldSystemID != currentSystemID) {
+                          // console.log("System changed: " + oldSystemID + " -> " + currentSystemID);
+
+                          currentSystemName = ret['name'];
+                          // Update values to the user's current location
+                          $('#current_location').text("Current Location: " + currentSystemName);
+                          $('#sd_' + oldSystemID).attr("id", 'sd_' + currentSystemID);
+                          $('#aw_' + oldSystemID).attr("id", 'aw_' + currentSystemID);
+
+                          // Update meta links
+                          $('#link_tripwire').attr('href', "https://tripwire.eve-apps.com/?system=" + currentSystemName);
+                          $('#link_zkill').attr('href', "https://zkillboard.com/system/" + currentSystemID);
+                          $('#link_dotlan').attr('href', "http://evemaps.dotlan.net/system/" + currentSystemID);
+
+                          $.ajax({
+                              type: 'GET',
+                              url: '/traderouter/update/distances/{{ refresh_token }}',
+                              dataType: "json",
+                              contentType: 'application/json'
+                          }).done(function (ret) {
+                              // console.log(ret);
+
+                              // Hide and remove stations
+                              $('#station_div').hide(100).empty();
+                              $.each(ret, function (name, data) {
+                                  $('#label_' + name).text(name + ' - ' + data['distance'] + ' Jump(s)');
+                              });
+                          });
+                      } else {
+                          // console.log("System has not changed");
+                      }
+                  });
+              }, 10000);
+          }
+
+          // Stop Auto Update Interval
+          function stop() {
+              // If auto-update is enabled, disable it
+              // console.log('Auto update disabled');
+              $('#btn_autoupdate').removeClass("btn-success").addClass("btn-danger");
+              clearInterval(timerUpdate);
+          }
       });
   </script>
 {% endif %}

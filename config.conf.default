@@ -5,3 +5,6 @@ EVE_OAUTH_CALLBACK: ''
 EVE_OAUTH_SCOPE: 'publicData esi-skills.read_skills.v1'
 
 SECRET_KEY: ''
+
+URL: ''
+SITE_NAME: ''
