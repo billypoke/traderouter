@@ -97,20 +97,29 @@ def router(refresh_token=None):
 
 @application.route('/traderouter/search/<system_name>')
 def search(system_name):
-    system_id = requests.get(
-        url="https://esi.tech.ccp.is/latest/search/?categories=solarsystem&datasource=tranquility&language=en-us&strict=true&search=" + system_name
-    ).json()['solarsystem'][0]
+    try:
+        result = requests.get(
+            url="https://esi.tech.ccp.is/latest/search/?categories=solarsystem%2Cwormhole&datasource=tranquility&language=en-us&strict=true&search=" + system_name
+        ).json()
 
-    distances = {}
-    for name, th_id in trade_hub_system_ids.items():
-        route = preston.route[system_id][th_id]()
-        distances[name] = {
-            'distance': len(route) - 1,
-            'system_id': th_id,
-            'station_id': trade_hub_station_ids[name]
-        }
+        system_id = result['solarsystem'][0]
 
-    return jsonify(distances)
+        distances = {}
+        for name, th_id in trade_hub_system_ids.items():
+            route = preston.route[system_id][th_id]()
+            distances[name] = {
+                'distance': len(route) - 1,
+                'system_id': th_id,
+                'station_id': trade_hub_station_ids[name]
+            }
+
+        return jsonify(distances)
+
+    except Exception as e:
+        flash('There was an error: ' + str(e), 'error')
+        print('Error: ' + str(e))
+
+        return jsonify({})
 
 @application.route('/traderouter/update/<action>/<refresh_token>')
 def update(action, refresh_token):
