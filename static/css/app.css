@@ -139,5 +139,5 @@ a {
 }
 
 .ui-autocomplete-loading {
-    background: white url('/static/images/ui-anim_basic_16x16.gif') no-repeat right center
+    background: white url('/static/images/ajax-loader.gif') no-repeat right center;
 }
