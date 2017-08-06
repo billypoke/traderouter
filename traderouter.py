@@ -92,7 +92,7 @@ def router(refresh_token=None):
 
     return render_template('index.html', show_crest=False, pilot_name=pilot_name, pilot_id=pilot_id,
                            current_system=current_system, current_id=system_id, distances=distances,
-                           token=auth.access_token, refresh_token=refresh_token)
+                           access_token=auth.access_token, refresh_token=refresh_token)
 
 
 @application.route('/traderouter/search/<system_name>')
@@ -156,6 +156,9 @@ def update(action, refresh_token):
             }
 
             return jsonify(distances)
+
+        elif action == 'token':
+            return jsonify(auth.access_token)
 
     except Exception as e:
         flash('There was an error: ' + str(e), 'error')

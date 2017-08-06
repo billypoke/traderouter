@@ -11,7 +11,12 @@
 {% else %}
   <div class="row">
     <div class="col-xs-12">
-      <h1 id="current_location">Current Location: {{ current_system }}</h1>
+      <h1 id="pilot_name">Pilot: {{ pilot_name }}</h1>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-12">
+      <h3 id="current_location">Current Location: {{ current_system }}</h3>
     </div>
   </div>
 
@@ -39,7 +44,8 @@
     <div class="col-xs-12">
       <button type="button" class="btn btn-success" id="btn_autoupdate">Auto Update?</button>
     </div>
-  </div><hr>
+  </div>
+  <hr>
 
   <div class="row">
     <div class="col-xs-12">
@@ -51,12 +57,15 @@
     <ul>
       <li>Minimum 3 characters</li>
       <li>Searching will disable auto-update</li>
+      <li>Wormholes can be searched to check their meta links (zkill, etc.) but setting using the navigation function
+        will not work (duh)
+      </li>
     </ul>
   </div>
 
   <div class="form-group row">
     <div class="col-xs-9 col-sm-4">
-      <input id="system" type="text" class="form-control">
+      <input id="system" class="form-control">
     </div>
     <div class="col-xs-3 col-sm-2">
       <button id="reset" class="form-control btn btn-primary">Reset</button>
@@ -64,10 +73,16 @@
   </div>
   <hr>
 
+  <div id="trade_hub_label" class="row">
+    <div class="col-xs-12">
+      <h3>Trade Hub Stations</h3>
+    </div>
+  </div>
+
   <div id="trade_hubs" class="row">
     {% for name, values in distances|dictsort %}
       <div id="{{ name }}" class="col-md-6">
-        <h3 id="label_{{ name }}">{{ name }} - {{ values['distance'] }} Jump(s)</h3>
+        <h4 id="label_{{ name }}">{{ name }} - {{ values['distance'] }} Jump(s)</h4>
         <a href="#" id="sd_{{ values['station_id'] }}" class="set_destination">Set Destination</a> |
         <a href="#" id="aw_{{ values['station_id'] }}" class="add_waypoint">Add Waypoint</a>
       </div>
@@ -77,7 +92,7 @@
   <div class="row">
     <hr>
     <div id="show_stations" class="col-xs-12">
-      <h4><a href="#">Show/Hide Stations</a></h4>
+      <h4><a href="#">Show/Hide Stations for {{ current_system }}</a></h4>
     </div>
     <div id="station_div" class="col-xs-12"></div>
     <hr>
@@ -96,13 +111,13 @@
           // URL construction
           let base = 'https://esi.tech.ccp.is/latest/';
           let url = base + 'ui/autopilot/waypoint/?datasource=tranquility';
-          let refr_token = '{{ token }}';
+          let access_token = '{{ access_token }}';
 
           // Set Destination click handler
           $('#current_system, #trade_hubs, #station_div').on("click", ".set_destination", function (e) {
               // console.log(".set_destination handler called");
               let destination = $(this).attr('id').split('_')[1];
-              $.post(url + '&add_to_beginning=true&clear_other_waypoints=true' + '&destination_id=' + destination + '&token=' + refr_token);
+              $.post(url + '&add_to_beginning=true&clear_other_waypoints=true' + '&destination_id=' + destination + '&token=' + access_token);
 
               e.preventDefault();
           });
@@ -111,14 +126,14 @@
           $('#current_system, #trade_hubs, #station_div').on("click", ".add_waypoint", function (e) {
               // console.log(".add_waypoint handler called");
               let destination = $(this).attr('id').split('_')[1];
-              $.post(url + '&add_to_beginning=false&clear_other_waypoints=false' + '&destination_id=' + destination + '&token=' + refr_token);
+              $.post(url + '&add_to_beginning=false&clear_other_waypoints=false' + '&destination_id=' + destination + '&token=' + access_token);
 
               e.preventDefault();
           });
 
           // Reset click handler
           $('#reset').click(function () {
-              // Reset values ot the user's current location
+              // Reset values to the user's current location
               $('#current_location').text("Current Location: {{ current_system }}");
               $('#sd_' + currentSystemID).attr("id", 'sd_{{ current_id }}');
               $('#aw_' + currentSystemID).attr("id", 'aw_{{ current_id }}');
@@ -134,8 +149,14 @@
               // Hide and remove stations
               $('#station_div').hide(100).empty();
 
+              // Update text for show/hide link
+              $('#show_stations > h4 > a').text("Show/Hide Stations for " + currentSystemName);
+
               // Clear search box
               $('#system').val('');
+
+              // Restart Auto-update
+              start();
 
               // Update distances
               $.ajax({
@@ -193,7 +214,7 @@
           // Autocomplete system name functionality
           $('#system').autocomplete({
               source: function (request, response) {
-                  $.get(base + 'search/?categories=solarsystem&datasource=tranquility&language=en-us&strict=false&search=' + request.term)
+                  $.get(base + 'search/?categories=solarsystem%2Cwormhole&datasource=tranquility&language=en-us&strict=false&search=' + request.term)
                       .done(function (data) {
                           $.ajax({
                               type: 'POST',
@@ -234,6 +255,9 @@
 
                   // Hide and remove stations
                   $('#station_div').hide(100).empty();
+
+                  // Update text for show/hide link
+                  $('#show_stations > h4 > a').text("Show/Hide Stations for " + currentSystemName);
 
                   // Fetch and update distances to trade hubs from viewing system
                   $.ajax({
@@ -281,6 +305,8 @@
                   // console.log("Updating Location...");
 
                   // Fetch and update distances to trade hubs from viewing system
+
+                  // First get current system
                   $.ajax({
                       type: 'GET',
                       url: '/traderouter/update/location/{{ refresh_token }}',
@@ -306,6 +332,7 @@
                           $('#link_zkill').attr('href', "https://zkillboard.com/system/" + currentSystemID);
                           $('#link_dotlan').attr('href', "http://evemaps.dotlan.net/system/" + currentSystemID);
 
+                          // Update distances
                           $.ajax({
                               type: 'GET',
                               url: '/traderouter/update/distances/{{ refresh_token }}',
@@ -323,6 +350,17 @@
                       } else {
                           // console.log("System has not changed");
                       }
+                  });
+
+                  // Update access token to prevent 403 errors
+                  $.ajax({
+                      type: 'GET',
+                      url: '/traderouter/update/token/{{ refresh_token }}',
+                      dataType: 'json',
+                      contentType: 'application/json'
+                  }).done(function (ret) {
+                      //console.log(ret);
+                      access_token = ret;
                   });
               }, 10000);
           }
