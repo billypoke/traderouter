@@ -138,6 +138,13 @@ a {
     background-color: rgba(240, 124, 0, 1);
 }
 
+.ui-autocomplete {
+    max-height: 100px;
+    overflow-y: auto;
+    /* prevent horizontal scrollbar */
+    overflow-x: hidden;
+}
+
 .ui-autocomplete-loading {
-    background: white url('/static/images/ajax-loader.gif') no-repeat right center;
+    background: white url('/static/images/ajax-loader-black.gif') no-repeat right center;
 }
