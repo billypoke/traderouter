@@ -14,7 +14,11 @@
 same.">
   <meta property="og:image" content="{{ config['URL'] }}static/images/header.jpg">
 
-  <title>Trade Hub Router</title>
+  {% if show_crest %}
+    <title>Trade Hub Router</title>
+  {% else %}
+    <title>{{ current_system }} - Trade Hub Router</title>
+  {% endif %}
 
   <link rel="shortcut icon" type="image/png" href="/static/images/11578_32.png"/>
 

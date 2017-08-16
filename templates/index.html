@@ -57,14 +57,14 @@
     <ul>
       <li>Minimum 3 characters</li>
       <li>Searching will disable auto-update</li>
-      <li>Wormholes can be searched to check their meta links (zkill, etc.) but setting using the navigation function
-        will not work (duh)
+      <li>Wormholes can be searched to check their meta links (zkill, etc.) but setting waypoints using the navigation
+        function will not work (duh)
       </li>
     </ul>
   </div>
 
   <div class="form-group row">
-    <div class="col-xs-9 col-sm-4">
+    <div class="col-xs-12 col-sm-4">
       <input id="system" class="form-control">
     </div>
     <div class="col-xs-3 col-sm-2">
@@ -92,7 +92,10 @@
   <div class="row">
     <hr>
     <div id="show_stations" class="col-xs-12">
-      <h4><a href="#">Show/Hide Stations for {{ current_system }}</a></h4>
+      <h4>
+        <a href="#">Show/Hide Stations for {{ current_system }}</a>
+        <img id="station_loader" src="/static/images/ajax-loader-white.gif">
+      </h4>
     </div>
     <div id="station_div" class="col-xs-12"></div>
     <hr>
@@ -105,6 +108,7 @@
       $(function () {
           // Hide the loading message and initialize globals
           $('#station_div').hide();
+          $('#station_loader').hide();
           currentSystemID = '{{ current_id }}';
           currentSystemName = '{{ current_system }}';
 
@@ -150,7 +154,10 @@
               $('#station_div').hide(100).empty();
 
               // Update text for show/hide link
-              $('#show_stations > h4 > a').text("Show/Hide Stations for " + currentSystemName);
+              $('#show_stations').find('> h4 > a').text("Show/Hide Stations for " + currentSystemName);
+
+              // Change page title
+              $('title').text(currentSystemName + ' - Trade Hub Router');
 
               // Clear search box
               $('#system').val('');
@@ -170,11 +177,14 @@
                       $('#label_' + name).text(name + ' - ' + data['distance'] + ' Jump(s)');
                   });
               });
+
+              return false;
           });
 
           // Show Stations click handler
           $('#show_stations').click(function () {
               if ($('#station_div').is(':empty')) {
+                  $('#station_loader').show(100);
                   // Get station IDs for the current system
                   $.ajax({
                       type: 'GET',
@@ -203,12 +213,14 @@
                                       "</div>"
                                   );
                               });
+                              $('#station_loader').hide(100);
                           }
                       });
                   });
               }
-
               $('#station_div').toggle(100);
+
+              return false;
           });
 
           // Autocomplete system name functionality
@@ -257,7 +269,10 @@
                   $('#station_div').hide(100).empty();
 
                   // Update text for show/hide link
-                  $('#show_stations > h4 > a').text("Show/Hide Stations for " + currentSystemName);
+                  $('#show_stations').find('> h4 > a').text("Show/Hide Stations for " + currentSystemName);
+
+                  // Change page title
+                  $('title').text(currentSystemName + ' - Trade Hub Router');
 
                   // Fetch and update distances to trade hubs from viewing system
                   $.ajax({
@@ -332,6 +347,15 @@
                           $('#link_zkill').attr('href', "https://zkillboard.com/system/" + currentSystemID);
                           $('#link_dotlan').attr('href', "http://evemaps.dotlan.net/system/" + currentSystemID);
 
+                          // Update text for show/hide link
+                          $('#show_stations').find('> h4 > a').text("Show/Hide Stations for " + currentSystemName);
+
+                          // Hide and remove stations
+                          $('#station_div').hide(100).empty();
+
+                          // Change page title
+                          $('title').text(currentSystemName + ' - Trade Hub Router');
+
                           // Update distances
                           $.ajax({
                               type: 'GET',
@@ -340,9 +364,6 @@
                               contentType: 'application/json'
                           }).done(function (ret) {
                               // console.log(ret);
-
-                              // Hide and remove stations
-                              $('#station_div').hide(100).empty();
                               $.each(ret, function (name, data) {
                                   $('#label_' + name).text(name + ' - ' + data['distance'] + ' Jump(s)');
                               });
