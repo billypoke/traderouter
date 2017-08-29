@@ -95,6 +95,7 @@
       <h4>
         <a href="#">Show/Hide Stations for {{ current_system }}</a>
         <img id="station_loader" src="/static/images/ajax-loader-white.gif">
+        <span id="station_error"></span>
       </h4>
     </div>
     <div id="station_div" class="col-xs-12"></div>
@@ -152,6 +153,7 @@
 
               // Hide and remove stations
               $('#station_div').hide(100).empty();
+              $('#station_error').text('');
 
               // Update text for show/hide link
               $('#show_stations').find('> h4 > a').text("Show/Hide Stations for " + currentSystemName);
@@ -185,6 +187,7 @@
           $('#show_stations').click(function () {
               if ($('#station_div').is(':empty')) {
                   $('#station_loader').show(100);
+                  $('#station_error').text('');
                   // Get station IDs for the current system
                   $.ajax({
                       type: 'GET',
@@ -193,29 +196,37 @@
                       contentType: 'application/json'
                   }).done(function (ret) {
                       // Resolve IDs to names
-                      $.ajax({
-                          type: 'POST',
-                          url: base + 'universe/names/',
-                          data: JSON.stringify(ret['station']),
-                          dataType: "json",
-                          contentType: 'application/json',
-                          success: function (ret) {
-                              // Sort by station name
-                              let sorted = ret.sort(function (a, b) {
-                                  return a['name'].localeCompare(b['name']);
-                              });
+                      if (JSON.stringify(ret['station']) !== undefined) {
+                          $.ajax({
+                              type: 'POST',
+                              url: base + 'universe/names/',
+                              data: JSON.stringify(ret['station']),
+                              dataType: "json",
+                              contentType: 'application/json',
+                              success: function (ret) {
+                                  // Sort by station name
+                                  let sorted = ret.sort(function (a, b) {
+                                      return a['name'].localeCompare(b['name']);
+                                  });
 
-                              $.each(sorted, function (index, data) {
-                                  $('#station_div').append(
-                                      "<hr><div><h5>" + data['name'] + "</h5>" +
-                                      "<a id='sd_" + data['id'] + "' href='#' class='set_destination'>Set Destination</a> | " +
-                                      "<a id='aw_" + data['id'] + "' href='#' class='add_waypoint'>Add Waypoint</a>" +
-                                      "</div>"
-                                  );
-                              });
-                              $('#station_loader').hide(100);
-                          }
-                      });
+                                  $.each(sorted, function (index, data) {
+                                      $('#station_div').append(
+                                          "<hr><div><h5>" + data['name'] + "</h5>" +
+                                          "<a id='sd_" + data['id'] + "' href='#' class='set_destination'>Set Destination</a> | " +
+                                          "<a id='aw_" + data['id'] + "' href='#' class='add_waypoint'>Add Waypoint</a>" +
+                                          "</div>"
+                                      );
+                                  });
+                                  $('#station_loader').hide(100);
+                              },
+                              error: function (ret, textStatus, errorThrown) {
+                                  console.log("%o " + textStatus + " " + errorThrown, ret);
+                              }
+                          });
+                      } else {
+                          $('#station_loader').hide(100);
+                          $('#station_error').text("No Stations Found");
+                      }
                   });
               }
               $('#station_div').toggle(100);
@@ -267,6 +278,7 @@
 
                   // Hide and remove stations
                   $('#station_div').hide(100).empty();
+                  $('#station_error').text('');
 
                   // Update text for show/hide link
                   $('#show_stations').find('> h4 > a').text("Show/Hide Stations for " + currentSystemName);
