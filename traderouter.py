@@ -70,6 +70,13 @@ def router(refresh_token=None):
 
             location = auth.characters[pilot_id].location()
             system_id = location['solar_system_id']
+            sys = preston.universe.systems(system_id)
+            const = preston.universe.constellations(sys['constellation_id'])
+            reg = preston.universe.regions(const['region_id'])
+
+            current_system = sys['name']
+            current_constellation = const['name']
+            current_region = reg['name']
 
             distances = {}
             for name, th_id in trade_hub_system_ids.items():
@@ -80,15 +87,14 @@ def router(refresh_token=None):
                     'station_id': trade_hub_station_ids[name]
                 }
 
-            current_system = preston.universe.systems(system_id)['name']
-
     except Exception as e:
         flash('There was an error: ' + str(e), 'error')
         print('Error: ' + str(e))
         return redirect(url_for('landing'))
 
     return render_template('index.html', show_crest=False, pilot_name=pilot_name, pilot_id=pilot_id,
-                           current_system=current_system, current_id=system_id, distances=distances,
+                           current_system=current_system, current_constellation=current_constellation,
+                           current_region=current_region, current_id=system_id, distances=distances,
                            access_token=auth.access_token, refresh_token=refresh_token)
 
 
@@ -100,6 +106,13 @@ def search(system_name):
         ).json()
 
         system_id = result['solarsystem'][0]
+        sys = preston.universe.systems(system_id)
+        const = preston.universe.constellations(sys['constellation_id'])
+        reg = preston.universe.regions(const['region_id'])
+
+        current_system = sys['name']
+        current_constellation = const['name']
+        current_region = reg['name']
 
         distances = {}
         for name, th_id in trade_hub_system_ids.items():
@@ -109,6 +122,9 @@ def search(system_name):
                 'system_id': th_id,
                 'station_id': trade_hub_station_ids[name]
             }
+
+        distances['constellation'] = current_constellation
+        distances['region'] = current_region
 
         return jsonify(distances)
 
@@ -129,12 +145,20 @@ def update(action, refresh_token):
 
         location = auth.characters[pilot_id].location()
         system_id = location['solar_system_id']
-        current_system = preston.universe.systems(system_id)['name']
+        sys = preston.universe.systems(system_id)
+        const = preston.universe.constellations(sys['constellation_id'])
+        reg = preston.universe.regions(const['region_id'])
+
+        current_system = sys['name']
+        current_constellation = const['name']
+        current_region = reg['name']
 
         if action == 'location':
             location = {
                 'name': current_system,
-                'system_id': system_id
+                'system_id': system_id,
+                'constellation': current_constellation,
+                'region': current_region
             }
             return jsonify(location)
 
